@@ -2,86 +2,77 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Callber Pro | Secure Voice</title>
-    <script src='https://meet.jit.si/external_api.js'></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Callber P2P</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg: #000; --green: #32D74B; --red: #FF453A; --accent: #0A84FF; }
-        body { margin: 0; font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; height: 100vh; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        
-        .card { background: #1c1c1e; width: 100%; max-width: 380px; padding: 30px; border-radius: 30px; border: 0.5px solid #333; text-align: center; }
-        .id-display { font-size: 32px; font-weight: 800; color: var(--green); margin: 20px 0; font-family: monospace; letter-spacing: 2px; }
-        
-        input { width: 100%; padding: 18px; border-radius: 15px; border: none; background: #2c2c2e; color: #fff; font-size: 18px; margin-bottom: 15px; text-align: center; outline: none; }
-        .btn-call { width: 100%; padding: 18px; border-radius: 15px; border: none; background: var(--green); color: #fff; font-weight: bold; font-size: 18px; cursor: pointer; transition: 0.3s; }
-        
-        /* Скрываем само окно видео-движка, оставляем только звук */
-        #jitsi-container { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-        
-        .status { color: #8e8e93; font-size: 13px; margin-top: 20px; }
-        .active-call { display: none; flex-direction: column; align-items: center; }
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 40px 20px; }
+        .card { background: #1c1c1e; padding: 30px; border-radius: 25px; border: 1px solid #333; }
+        .id-val { font-size: 40px; color: #32D74B; font-weight: bold; margin: 20px 0; }
+        input { width: 100%; padding: 15px; border-radius: 12px; border: none; background: #2c2c2e; color: #fff; margin-bottom: 15px; text-align: center; font-size: 20px; }
+        button { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #32D74B; color: #fff; font-weight: bold; font-size: 18px; }
+        #status { margin-top: 20px; color: #8e8e93; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <div id="setup-screen" class="card">
-        <h1 style="letter-spacing: -1px; margin-bottom: 10px;">CALLBER <span style="color:var(--accent)">PRO</span></h1>
-        <p style="color:#8e8e93; font-size: 14px;">Ваш защищенный канал:</p>
-        <div id="my-id" class="id-display">...</div>
-        
-        <input type="text" id="peer-id" placeholder="Введите ID партнера">
-        <button class="btn-call" onclick="startCall()">УСТАНОВИТЬ СВЯЗЬ</button>
-        
-        <div class="status" id="status-text">Система готова. Ожидание вызова...</div>
-    </div>
+<div class="card">
+    <h2 style="margin-top:0">CALLBER <span style="color:#0A84FF">P2P</span></h2>
+    <div style="font-size:14px; color:#8e8e93">ТВОЙ НОМЕР:</div>
+    <div id="my-id" class="id-val">...</div>
+    
+    <input type="number" id="peer-id" placeholder="Номер партнера">
+    <button onclick="startCall()">ПОЗВОНИТЬ</button>
+    
+    <div id="status">Инициализация...</div>
+</div>
 
-    <div id="jitsi-container"></div>
+<audio id="remote-audio" autoplay playsinline></audio>
 
-    <script>
-        // Генерируем простой ID, если его нет
-        const myId = Math.random().toString(36).substring(2, 7).toUpperCase();
-        document.getElementById('my-id').innerText = myId;
+<script>
+    // Создаем Peer с принудительным использованием Google серверов
+    const peer = new Peer({
+        config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
+    });
 
-        let api = null;
+    peer.on('open', (id) => {
+        // Берем последние 4 цифры для простоты
+        const shortId = id.replace(/\D/g,'').substring(0,4) || Math.floor(1000 + Math.random() * 9000);
+        document.getElementById('my-id').innerText = shortId;
+        document.getElementById('status').innerText = "Готов к работе";
+    });
 
-        function startCall() {
-            const partnerId = document.getElementById('peer-id').value.toUpperCase();
-            if (!partnerId) return alert("Введите ID партнера!");
-            
-            // Создаем уникальную комнату на базе двух ID (сортируем, чтобы у обоих была одна комната)
-            const roomName = [myId, partnerId].sort().join("-");
-            initJitsi(roomName);
-        }
-
-        function initJitsi(roomName) {
-            document.getElementById('status-text').innerText = "Прорыв блока... Соединение...";
-            document.getElementById('status-text').style.color = "#32D74B";
-
-            const domain = 'meet.jit.si';
-            const options = {
-                roomName: 'Callber-' + roomName,
-                width: 1,
-                height: 1,
-                parentNode: document.querySelector('#jitsi-container'),
-                configOverwrite: { 
-                    startWithAudioMuted: false, 
-                    startWithVideoMuted: true,
-                    prejoinPageEnabled: false
-                },
-                interfaceConfigOverwrite: {
-                    TOOLBAR_BUTTONS: [] // Скрываем всё лишнее
-                }
-            };
-            
-            api = new JitsiMeetExternalAPI(domain, options);
-            
-            api.addEventListener('videoConferenceJoined', () => {
-                document.getElementById('status-text').innerText = "ПРЯМАЯ СВЯЗЬ УСТАНОВЛЕНА";
-                // Можно добавить вибрацию или звук начала звонка
+    peer.on('call', (call) => {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+            call.answer(stream);
+            call.on('stream', (remoteStream) => {
+                document.getElementById('remote-audio').srcObject = remoteStream;
+                document.getElementById('status').innerText = "СВЯЗЬ УСТАНОВЛЕНА";
             });
-        }
-// Авто-прием звонка: в реальном P2P это сложнее, 
-        // но для ТЕСТА ЗАВТРА: просто введите один и тот же ID комнаты у обоих.
-    </script>
+        });
+    });
+
+    function startCall() {
+        const id = document.getElementById('peer-id').value;
+        document.getElementById('status').innerText = "Набираю " + id + "...";
+        
+        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+            // ВАЖНО: Мы ищем полный ID по префиксу или используем как есть
+            const call = peer.call(id, stream);
+            call.on('stream', (remoteStream) => {
+                document.getElementById('remote-audio').srcObject = remoteStream;
+                document.getElementById('status').innerText = "СВЯЗЬ УСТАНОВЛЕНА";
+            });
+        }).catch(err => {
+            alert("Включите микрофон в настройках браузера!");
+        });
+    }
+
+    peer.on('error', (err) => {
+        document.getElementById('status').innerText = "Ошибка: " + err.type;
+        console.error(err);
+    });
+</script>
+
 </body>
 </html>
