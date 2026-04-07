@@ -3,99 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Callber Pro | P2P Voice</title>
+    <title>Callber P2P Debug</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --apple-bg: #000; --enro-green: #32D74B; --apple-red: #FF453A; --accent: #0A84FF; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; font-family: -apple-system, sans-serif; background: var(--apple-bg); color: #fff; height: 100vh; display: flex; flex-direction: column; }
-        
-        .app-container { flex: 1; display: flex; flex-direction: column; padding: 20px; align-items: center; justify-content: center; text-align: center; }
-        
-        .status-card { background: #1c1c1e; width: 100%; max-width: 350px; border-radius: 25px; padding: 25px; border: 0.5px solid #333; margin-bottom: 20px; }
-        
-        .my-id-label { color: #8e8e93; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
-        .my-id-value { color: var(--enro-green); font-size: 24px; font-weight: 800; margin: 10px 0; font-family: monospace; }
-        
-        input { width: 100%; background: #2c2c2e; border: none; border-radius: 15px; padding: 15px; color: #fff; font-size: 16px; margin-bottom: 15px; text-align: center; outline: none; border: 1px solid transparent; }
-        input:focus { border-color: var(--accent); }
-        
-        .btn { width: 100%; padding: 16px; border-radius: 15px; border: none; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-call { background: var(--enro-green); color: #fff; }
-        .btn-hangup { background: var(--apple-red); color: #fff; display: none; margin-top: 10px; }
-        
-        .calling-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(20px); }
-        .avatar { width: 120px; height: 120px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 50px; margin-bottom: 20px; border: 2px solid var(--accent); }
-        .pulse { animation: p 1.5s infinite; }
-        @keyframes p { 0% { box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.4); } 100% { box-shadow: 0 0 0 30px rgba(10, 132, 255, 0); } }
+        body { background: #000; color: #fff; font-family: sans-serif; padding: 20px; text-align: center; }
+        .id-box { background: #1c1c1e; padding: 20px; border-radius: 15px; border: 1px solid #333; margin: 20px 0; color: #32D74B; font-size: 24px; font-family: monospace; }
+        input { width: 100%; padding: 15px; border-radius: 10px; border: none; background: #2c2c2e; color: #fff; margin-bottom: 10px; font-size: 18px; }
+        .btn { width: 100%; padding: 15px; border-radius: 10px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .btn-call { background: #32D74B; color: #fff; }
+        #log { font-size: 10px; color: #8e8e93; text-align: left; margin-top: 20px; height: 100px; overflow-y: auto; background: #111; padding: 10px; }
     </style>
 </head>
 <body>
-
-    <div class="app-container">
-        <h1 style="margin-bottom: 40px; letter-spacing: -1px;">CALLBER <span style="color:var(--accent)">PRO</span></h1>
-        
-        <div class="status-card">
-            <div class="my-id-label">Ваш P2P Адрес</div>
-            <div id="my-id" class="my-id-value">ПОДКЛЮЧЕНИЕ...</div>
-        </div>
-
-        <div style="width: 100%; max-width: 350px;">
-            <input type="text" id="peer-id" placeholder="ID партнера">
-            <button class="btn btn-call" id="call-btn" onclick="makeCall()">ПОЗВОНИТЬ</button>
-            <button class="btn btn-hangup" id="hangup-btn" onclick="endCall()">ЗАВЕРШИТЬ</button>
-        </div>
-        
-        <p id="info" style="color: #444; font-size: 12px; margin-top: 20px;">Защищено сквозным P2P шифрованием</p>
-    </div>
-
-    <div id="calling-screen" class="calling-overlay">
-        <div class="avatar pulse">👨‍💻</div>
-        <h2 id="remote-name">Братишка</h2>
-        <div id="call-duration" style="color: var(--enro-green)">00:00</div>
-        <button class="btn btn-hangup" style="display:block; width: 80px; height: 80px; border-radius: 50%; margin-top: 50px;" onclick="endCall()">✕</button>
-    </div>
-
-    <audio id="remote-audio" autoplay></audio>
+    <h2>CALLBER P2P TEST</h2>
+    <div class="id-box" id="my-id">ЗАГРУЗКА...</div>
+    <input type="text" id="peer-id" placeholder="ID партнера">
+    <button class="btn btn-call" onclick="makeCall()">ПОЗВОНИТЬ</button>
+    <div id="log">Логи системы:<br></div>
+    <audio id="remote-audio" autoplay playsinline></audio>
 
     <script>
-        const peer = new Peer();
-        let currentCall;
+        function log(msg) {
+            document.getElementById('log').innerHTML += "> " + msg + "<br>";
+            console.log(msg);
+        }
+
+        // Конфигурация с серверами Google для пробивки блокировок
+        const peer = new Peer({
+            config: {'iceServers': [
+                { url: 'stun:stun.l.google.com:19302' },
+                { url: 'stun:stun1.l.google.com:19302' }
+            ]}
+        });
 
         peer.on('open', (id) => {
-            document.getElementById('my-id').innerText = id.substring(0, 6).toUpperCase();
+            const shortId = id.substring(0, 5).toUpperCase();
+            document.getElementById('my-id').innerText = shortId;
+            log("ID получен: " + shortId);
         });
-peer.on('call', (call) => {
+
+        peer.on('error', (err) => log("ОШИБКА: " + err.type));
+
+        // Прием звонка
+        peer.on('call', (call) => {
+            log("Входящий звонок...");
             navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
                 call.answer(stream);
-                showCallingScreen();
-                handleStream(call);
-            });
+                log("Ответил на звонок");
+                handleCall(call);
+            }).catch(e => log("Нет доступа к микрофону: " + e));
         });
 
         function makeCall() {
-            const id = document.getElementById('peer-id').value.toLowerCase();
-            if(!id) return;
+            const destId = document.getElementById('peer-id').value.toLowerCase();
+            log("Звоню на: " + destId);
             navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-                const call = peer.call(id, stream);
-                showCallingScreen();
-                handleStream(call);
-            });
+                const call = peer.call(destId, stream);
+                handleCall(call);
+            }).catch(e => log("Ошибка микрофона: " + e));
         }
 
-        function handleStream(call) {
-            currentCall = call;
+        function handleCall(call) {
             call.on('stream', (remoteStream) => {
+                log("ПОТОК ПОЛУЧЕН! Слушайте звук");
                 document.getElementById('remote-audio').srcObject = remoteStream;
             });
-        }
-
-        function showCallingScreen() {
-            document.getElementById('calling-screen').style.display = 'flex';
-        }
-
-        function endCall() {
-            location.reload();
+            call.on('close', () => log("Звонок завершен"));
         }
     </script>
 </body>
